@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Face Recognition</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+</head>
+<body>
+    <h1>Real-Time Face Recognition</h1>
+    <video id="video" width="720" height="560" autoplay muted></video>
+
+    <script>
+        const video = document.getElementById('video');
+
+        // Load models from face-api.js
+        Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),        // Face detection model
+            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),       // Face landmarks
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models'),      // Face recognition model
+            faceapi.nets.ssdMobilenetv1.loadFromUri('/models')           // SSD MobileNet model for faster detection
+        ]).then(startVideo);
+
+        // Access the webcam
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: {} })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(err => console.error("Error accessing the camera: " + err));
+        }
+
+        // Real-time face detection and recognition
+        video.addEventListener('play', async () => {
+            const canvas = faceapi.createCanvasFromMedia(video);
+            document.body.append(canvas);
+            const displaySize = { width: video.width, height: video.height };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            const labeledDescriptors = await loadLabeledImages();
+            const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);  // 0.6 is the threshold for recognition
+
+            setInterval(async () => {
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
+
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                resizedDetections.forEach(detection => {
+                    const box = detection.detection.box;
+                    const drawBox = new faceapi.draw.DrawBox(box, { label: "Unknown" });
+
+                    const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                    if (bestMatch.label !== "unknown") {
+                        drawBox.options.label = bestMatch.toString();
+                    }
+
+                    drawBox.draw(canvas);
+                });
+            }, 100);
+        });
+
+        // Load the known faces and their encodings
+        function loadLabeledImages() {
+            const labels = ['person1', 'person2'];  // Names of people you've trained on
+            return Promise.all(
+                labels.map(async (label) => {
+                    const descriptions = [];
+                    for (let i = 1; i <= 2; i++) {  // Assuming 2 images per person in /models/{label}
+                        const img = await faceapi.fetchImage(`/models/${label}/${i}.jpg`);
+                        const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                        descriptions.push(detections.descriptor);
+                    }
+                    return new faceapi.LabeledFaceDescriptors(label, descriptions);
+                })
+            );
+        }
+    </script>
+</body>
+</html>
