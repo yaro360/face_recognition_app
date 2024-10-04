@@ -15,5 +15,21 @@ Real-Time Processing:
 -Using face-api.js in the browser, the app can continuously detect and recognize faces while the camera is active, eliminating the need to manually capture images.
 -Live Labels and Rectangles: Faces will be labeled in real-time as they appear in the video stream.
 -Client-Side Processing: The face recognition can happen entirely on the client-side, improving performance and reducing server load.
+- Download the pre-trained models from the face-api.js GitHub.
+
+File and Folders:
+your_project/
+├── app.py
+├── templates/
+│   └── index.html
+└── models/
+    ├── person1/
+    │   ├── 1.jpg
+    │   └── 2.jpg
+    ├── person2/
+    │   ├── 1.jpg
+    │   └── 2.jpg
+    └── ... (face-api.js model files)
+
 
 This enhancement would turn the app into a real-time face recognition tool, ideal for live scenarios, without needing manual image captures.
