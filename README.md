@@ -5,6 +5,7 @@ Current Flask App Functionality
 -Manual Face Recognition: Users capture a snapshot from their webcam via the browser.
 -The image is sent to the Flask backend, where face_recognition detects faces and matches them with known faces.
 -Rectangles and labels are drawn around detected faces, and the processed image is sent back to the browser for display.
+*Tbe code in this repository is to run the app locally, but there is a way to run it in the cloud and point to any camera by adjusting the code as needed.
 
 Limitations:
 -Recognition only occurs after manually capturing an image.
