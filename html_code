@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition</title>
+</head>
+<body>
+    <h1>Face Recognition with Rectangles and Labels</h1>
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="snap">Capture</button>
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <h2>Processed Image:</h2>
+    <img id="processedImage" src="" alt="Processed Image will appear here">
+
+    <script>
+        // Access the camera using getUserMedia
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const processedImage = document.getElementById('processedImage');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => {
+            console.error("Error accessing the camera: " + err);
+        });
+
+        // Capture the image from the video stream
+        document.getElementById('snap').addEventListener('click', () => {
+            context.drawImage(video, 0, 0, 640, 480);
+            const data = canvas.toDataURL('image/jpeg');
+
+            // Send the image to the backend for face recognition
+            fetch('/process_image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'image=' + encodeURIComponent(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display the processed image from the backend
+                processedImage.src = data.processed_image;
+            })
+            .catch(err => {
+                console.error("Error in fetch request: " + err);
+            });
+        });
+    </script>
+</body>
+</html>
