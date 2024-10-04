@@ -1,0 +1,84 @@
+import os
+import cv2
+import base64
+import numpy as np
+import face_recognition
+from flask import Flask, render_template, request, jsonify
+
+app = Flask(__name__)
+
+# Directory where the known face images are stored
+known_faces_dir = "known_faces"
+
+# List to hold encodings and names of known faces
+known_face_encodings = []
+known_face_names = []
+
+# Load and encode known faces from the directory
+def load_known_faces():
+    global known_face_encodings, known_face_names
+    for filename in os.listdir(known_faces_dir):
+        if filename.endswith(".jpg") or filename.endswith(".png"):  # Support jpg and png formats
+            image_path = os.path.join(known_faces_dir, filename)
+            image = face_recognition.load_image_file(image_path)
+            try:
+                face_encoding = face_recognition.face_encodings(image)[0]
+                known_face_encodings.append(face_encoding)
+                known_face_names.append(os.path.splitext(filename)[0])  # Use filename without extension as name
+            except IndexError:
+                print(f"No faces found in {filename}, skipping.")
+
+# Load known faces when the app starts
+load_known_faces()
+
+# Serve the HTML page
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Process the image sent from the frontend
+@app.route('/process_image', methods=['POST'])
+def process_image():
+    data = request.form['image']  # Receive the base64-encoded image
+    image_data = base64.b64decode(data.split(',')[1])  # Decode the base64 part
+
+    # Convert the image data to a NumPy array
+    nparr = np.frombuffer(image_data, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # Convert the image from BGR (OpenCV format) to RGB (face_recognition format)
+    rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # Find faces in the current frame and encode them
+    face_locations = face_recognition.face_locations(rgb_img)
+    face_encodings = face_recognition.face_encodings(rgb_img, face_locations)
+
+    face_names = []
+
+    # Compare each face found with known faces and draw rectangles
+    for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Unknown"
+
+        # Use the known face with the smallest distance to the new face
+        face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = known_face_names[best_match_index]
+
+        face_names.append(name)
+
+        # Draw a rectangle around the face
+        cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
+
+        # Label the face
+        cv2.putText(img, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+
+    # Convert the image back to base64 format to send it back to the frontend
+    _, buffer = cv2.imencode('.jpg', img)
+    processed_data = base64.b64encode(buffer).decode('utf-8')
+
+    return jsonify({"processed_image": 'data:image/jpeg;base64,' + processed_data})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
